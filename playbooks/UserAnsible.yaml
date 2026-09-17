@@ -1,0 +1,311 @@
+---
+# Partie 1/3 : Création et configuration de l'utilisateur Ansible
+#
+# Objectif :
+# Créer un utilisateur dédié à l'administration distante des machines clientes
+# qui sera utilisé uniquement par Ansible,
+# afin d'éviter l'utilisation du compte root par sécurité
+
+- name: Créer user ansible
+  hosts: Clients
+  become: yes
+
+  tasks:
+
+    - block:
+        - name: Mise à jour complète
+          apt:
+
+# Met à jour la liste des paquets disponibles
+            update_cache: yes
+
+# Effectue une mise à niveau complète des paquets installés
+            upgrade: full
+
+# Supprime les paquets devenus inutiles
+            autoremove: yes
+
+# Nettoie le cache local des paquets
+            autoclean: yes
+
+      rescue:
+        - name: Log - échec mise à jour système
+          become: no
+          lineinfile:
+            path: /chemin/vers/ansibleFails.log
+            create: yes
+            line: "{{ lookup('pipe', 'TZ=Europe/Paris date +\"%Y-%m-%d %H:%M:%S\"') }} | {{ inventory_hostname }} | Maj système failed"
+          delegate_to: localhost
+
+    - block:
+        - name: Créer utilisateur ansible
+          user:
+# Nom du compte utilisé par Ansible pour se connecter
+            name: ansible
+            shell: /bin/bash
+            create_home: yes
+# Permet d'exécuter des commandes administrateur
+            groups: sudo
+            append: yes
+# Définit le mot de passe pour le compte
+            password: "{{ 'mdp_user_ansible' | password_hash('sha512') }}"
+
+      rescue:
+        - name: Log erreur création user
+          become: no
+          lineinfile:
+            path: /chemin/vers/ansibleFails.log
+            create: yes
+            line: "{{ lookup('pipe', 'TZ=Europe/Paris date +\"%Y-%m-%d %H:%M:%S\"') }} | {{ inventory_hostname }} | Création utilisateur failed"
+          delegate_to: localhost
+
+    - block:
+        - name: Ajouter clé SSH
+          authorized_key:
+
+# Utilisateur auquel sera associée la clé publique
+            user: ansible
+
+# Clé publique permettant une connexion SSH sans mot de passe
+# Faire : cat ~/.ssh/id_ed25519.pub
+            key: "ssh-ed25519 ..."
+            state: present
+
+      rescue:
+        - name: Log erreur clé SSH
+          become: no
+          lineinfile:
+            path: /chemin/vers/ansibleFails.log
+            create: yes
+            line: "{{ lookup('pipe', 'TZ=Europe/Paris date +\"%Y-%m-%d %H:%M:%S\"') }} | {{ inventory_hostname }} | Clé SSH failed"
+          delegate_to: localhost
+
+    - block:
+        - name: Ajouter NOPASSWD
+          lineinfile:
+            path: /etc/sudoers.d/ansible
+
+# Règle permettant à ansible d'utiliser sudo sans authentification
+            line: 'ansible ALL=(ALL) NOPASSWD:ALL'
+            create: yes
+
+      rescue:
+        - name: Log erreur NOPASSWD
+          become: no
+          lineinfile:
+            path: /chemin/vers/ansibleFails.log
+            create: yes
+            line: "{{ lookup('pipe', 'TZ=Europe/Paris date +\"%Y-%m-%d %H:%M:%S\"') }} | {{ inventory_hostname }} | Ajout NOPASSWD failed"
+          delegate_to: localhost
+
+    - block:
+        - name: Cacher ansible de log list
+          copy:
+
+# Cacher le compte de la liste de connexion
+            dest: /var/lib/AccountsService/users/ansible
+            content: |
+              [User]
+              SystemAccount=true
+
+      rescue:
+        - name: Log erreur cacher ansible
+          become: no
+          lineinfile:
+            path: /chemin/vers/ansibleFails.log
+            create: yes
+            line: "{{ lookup('pipe', 'TZ=Europe/Paris date +\"%Y-%m-%d %H:%M:%S\"') }} | {{ inventory_hostname }} | Cacher user fail"
+          delegate_to: localhost
+
+    - block:
+        - name: Restart SSH
+          command: systemctl restart ssh
+
+      rescue:
+        - name: Log erreur Restart SSH
+          become: no
+          lineinfile:
+            path: /chemin/vers/ansibleFails.log
+            create: yes
+            line: "{{ lookup('pipe', 'TZ=Europe/Paris date +\"%Y-%m-%d %H:%M:%S\"') }} | {{ inventory_hostname }} | Restart SSH fail"
+          delegate_to: localhost
+
+# Partie 2/2 : Configuration Dropbear et Wake-on-LAN
+#
+# Objectif :
+# Préparer les machines pour permettre :
+# - Le déchiffrement via Dropbear
+# - L'allumage à distance via WoL
+# - La sécurisation du compte Ansible
+- name: Setup Dropbear & WoL
+  hosts: Clients
+  become: yes
+
+  tasks:
+
+# Installation du service Dropbear dans l'environnement initramfs
+    - block:
+        - name: Installer Dropbear
+          apt:
+            name: dropbear-initramfs
+            state: present
+
+      rescue:
+        - name: Log - échec installation Dropbear
+          become: no
+          lineinfile:
+            path: /chemin/vers/ansibleFails.log
+            create: yes
+            line: "{{ lookup('pipe', 'TZ=Europe/Paris date +\"%Y-%m-%d %H:%M:%S\"') }} | {{ inventory_hostname }} | Dropbear install fail"
+          delegate_to: localhost
+
+    - block:
+        - name: Ajout Dropbear Options
+          lineinfile:
+            path: /etc/dropbear/initramfs/dropbear.conf
+
+# Modification du port SSH de Dropbear
+# Le port 2222 est utilisé pour éviter le conflit avec SSH classique (port 22)
+            line: 'DROPBEAR_OPTIONS="-I 239 -j -k -p 2222 -s"'
+            state: present
+
+      rescue:
+        - name: Log erreur Dropbear Options
+          become: no
+          lineinfile:
+            path: /chemin/vers/ansibleFails.log
+            create: yes
+            line: "{{ lookup('pipe', 'TZ=Europe/Paris date +\"%Y-%m-%d %H:%M:%S\"') }} | {{ inventory_hostname }} | Ajout Dropbear Options failed"
+          delegate_to: localhost
+
+    - block:
+        - name: Ajouter Clé dans Dropbear
+          lineinfile:
+            path: /etc/dropbear/initramfs/authorized_keys
+            create: yes
+
+# Clé publique permettant la connexion
+# root temporaire pour Dropbear
+# Faire : cat ~/.ssh/id_ed25519.pub
+            line: "ssh-ed25519 ..."
+            state: present
+
+      rescue:
+        - name: Log erreur Clé Dropbear
+          become: no
+          lineinfile:
+            path: /chemin/vers/ansibleFails.log
+            create: yes
+            line: "{{ lookup('pipe', 'TZ=Europe/Paris date +\"%Y-%m-%d %H:%M:%S\"') }} | {{ inventory_hostname }} | Ajout Clé Dropbear failed"
+          delegate_to: localhost
+
+    - block:
+        - name: Relancer initramfs
+
+# Réintégrer la nouvelle configuration Dropbear
+          command: sudo update-initramfs -u
+
+      rescue:
+        - name: Log erreur Relancer initramfs
+          become: no
+          lineinfile:
+            path: /chemin/vers/ansibleFails.log
+            create: yes
+            line: "{{ lookup('pipe', 'TZ=Europe/Paris date +\"%Y-%m-%d %H:%M:%S\"') }} | {{ inventory_hostname }} | Relancer initramfs failed"
+          delegate_to: localhost
+
+    - block:
+        - name: Relancer ssh
+
+# Recharge la configuration SSH après modification
+          command: sudo systemctl restart ssh
+
+      rescue:
+        - name: Log erreur Relancer ssh
+          become: no
+          lineinfile:
+            path: /chemin/vers/ansibleFails.log
+            create: yes
+            line: "{{ lookup('pipe', 'TZ=Europe/Paris date +\"%Y-%m-%d %H:%M:%S\"') }} | {{ inventory_hostname }} | Relancer ssh failed"
+          delegate_to: localhost
+
+    - block:
+        - name: Activer WoL
+
+# Active le réveil réseau permanent de la carte réseau
+          command: nmcli connection modify "{{ carte }}" 802-3-ethernet.wake-on-lan magic
+
+      rescue:
+        - name: Log erreur Activer WoL
+          become: no
+          lineinfile:
+            path: /chemin/vers/ansibleFails.log
+            create: yes
+            line: "{{ lookup('pipe', 'TZ=Europe/Paris date +\"%Y-%m-%d %H:%M:%S\"') }} | {{ inventory_hostname }} | Activer WoL failed"
+          delegate_to: localhost
+
+    - block:
+        - name: Bloquer login avec mdp
+          user:
+            name: ansible
+
+# Empêche une connexion avec mot de passe
+            password_lock: yes
+
+      rescue:
+        - name: Log erreur Bloquer login
+          become: no
+          lineinfile:
+            path: /chemin/vers/ansibleFails.log
+            create: yes
+            line: "{{ lookup('pipe', 'TZ=Europe/Paris date +\"%Y-%m-%d %H:%M:%S\"') }} | {{ inventory_hostname }} | Bloquer login failed"
+          delegate_to: localhost
+
+    - block:
+        - name: Relancer PC
+          command: reboot
+          async: 1
+          poll: 0
+
+      rescue:
+        - name: Log erreur Relancer
+          become: no
+          lineinfile:
+            path: /chemin/vers/ansibleFails.log
+            create: yes
+            line: "{{ lookup('pipe', 'TZ=Europe/Paris date +\"%Y-%m-%d %H:%M:%S\"') }} | {{ inventory_hostname }} | Relancer failed"
+          delegate_to: localhost
+
+# Attendre le relancement complet de tous les PCs
+    - name: Pause
+      pause:
+        seconds: 30
+
+- name: Lancer + Décrypter Pc
+  hosts: localhost
+  become: no
+
+  tasks:
+
+# Décryptage automatique du disque LUKS
+    - name: Décrypter PCs avec Dropbear
+      command: >
+        ssh -o StrictHostKeyChecking=no -p 2222 root@{{ hostvars[item].ansible_host }}
+        'echo -n "mdp_de_decryptage" | cryptroot-unlock'
+      loop: "{{ groups['Clients'] }}"
+      register: resultat_dropbear
+      ignore_errors: yes
+
+    - name: Log décrypte fail
+      lineinfile:
+        path: /chemin/vers/ansibleFails.log
+        create: yes
+        line: "{{ lookup('pipe', 'TZ=Europe/Paris date +\"%Y-%m-%d %H:%M:%S\"') }} | {{ item.item }} | Dropbear décrypt fail"
+      loop: "{{ resultat_dropbear.results }}"
+      when: item.failed
+      delegate_to: localhost
+
+# Attente que les machines finissent leur boot complet
+    - name: Pause
+      pause:
+        seconds: 60

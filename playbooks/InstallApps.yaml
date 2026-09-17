@@ -1,0 +1,275 @@
+---
+# Partie 1/1 : Mise à jour du système et installation des logiciels nécessaires
+#
+# S'exécute sur les PCs du groupe [UserAnsible]
+#
+# Logiciels installés :
+#
+# - TeX Live Full
+# - Anaconda
+# - Dropbox
+# - Google Chrome
+# - Xournal
+# - R
+# - RStudio
+# - Visual Studio Code
+# - Zoom
+# - LibreOffice 
+#
+# Les erreurs produites lors de l'installation sont enregistrées 
+# dans le fichier ansibleFails.log
+- name: Maj + Installation des App
+  hosts: UserAnsible
+  become: yes
+
+  tasks:
+
+    - block:
+        - name: Mise à jour complète
+          apt:
+            update_cache: yes
+            upgrade: full
+            autoremove: yes
+            autoclean: yes
+
+      rescue:
+        - name: Log - échec mise à jour système
+          become: no
+          lineinfile:
+            path: /chemin/vers/ansibleFails.log
+            create: yes
+            line: "{{ lookup('pipe', 'TZ=Europe/Paris date +\"%Y-%m-%d %H:%M:%S\"') }} | {{ inventory_hostname }} | Maj système failed"
+          delegate_to: localhost
+
+    - block:
+        - name: Installer texlive-full
+          apt:
+            name: texlive-full
+            state: present
+
+      rescue:
+        - name: Log - échec installation texlive-full
+          become: no
+          lineinfile:
+            path: /chemin/vers/ansibleFails.log
+            create: yes
+            line: "{{ lookup('pipe', 'TZ=Europe/Paris date +\"%Y-%m-%d %H:%M:%S\"') }} | {{ inventory_hostname }} | texlive install failed"
+          delegate_to: localhost
+
+    - block:
+        - name: Télécharger Anaconda
+          get_url:
+            url: https://repo.anaconda.com/archive/Anaconda3-2025.12-2-Linux-x86_64.sh
+            dest: /tmp/anaconda.sh
+
+      rescue:
+        - name: Log - échec téléchargement Anaconda
+          become: no
+          lineinfile:
+            path: /chemin/vers/ansibleFails.log
+            create: yes
+            line: "{{ lookup('pipe', 'TZ=Europe/Paris date +\"%Y-%m-%d %H:%M:%S\"') }} | {{ inventory_hostname }} | Anaconda download failed"
+          delegate_to: localhost
+
+    - block:
+        - name: Installer Anaconda
+          shell: bash /tmp/anaconda.sh -b -p /opt/anaconda/
+
+      rescue:
+        - name: Log - échec installation Anaconda
+          become: no
+          lineinfile:
+            path: /chemin/vers/ansibleFails.log
+            create: yes
+            line: "{{ lookup('pipe', 'TZ=Europe/Paris date +\"%Y-%m-%d %H:%M:%S\"') }} | {{ inventory_hostname }} | Anaconda install failed"
+          delegate_to: localhost
+
+    - block:
+        - name: Télécharger Dropbox
+          get_url:
+            url: https://www.dropbox.com/download?dl=packages/ubuntu/dropbox_2026.01.15_amd64.deb
+            dest: /tmp/dropbox.deb
+
+      rescue:
+        - name: Log - échec téléchargement Dropbox
+          become: no
+          lineinfile:
+            path: /chemin/vers/ansibleFails.log
+            create: yes
+            line: "{{ lookup('pipe', 'TZ=Europe/Paris date +\"%Y-%m-%d %H:%M:%S\"') }} | {{ inventory_hostname }} | Dropbox download failed"
+          delegate_to: localhost
+
+    - block:
+        - name: Installer Dropbox
+          apt:
+            deb: /tmp/dropbox.deb
+
+      rescue:
+        - name: Log - échec installation  Dropbox
+          become: no
+          lineinfile:
+            path: /chemin/vers/ansibleFails.log
+            create: yes
+            line: "{{ lookup('pipe', 'TZ=Europe/Paris date +\"%Y-%m-%d %H:%M:%S\"') }} | {{ inventory_hostname }} | Dropbox install failed"
+          delegate_to: localhost
+
+    - block:
+        - name: Télécharger Chrome
+          get_url:
+            url: https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+            dest: /tmp/google-chrome.deb
+
+      rescue:
+        - name: Log - échec téléchargement Chrome
+          become: no
+          lineinfile:
+            path: /chemin/vers/ansibleFails.log
+            create: yes
+            line: "{{ lookup('pipe', 'TZ=Europe/Paris date +\"%Y-%m-%d %H:%M:%S\"') }} | {{ inventory_hostname }} | Chrome download failed"
+          delegate_to: localhost
+
+    - block:
+        - name: Installer Chrome
+          apt:
+            deb: /tmp/google-chrome.deb
+
+      rescue:
+        - name: Log - échec installation Chrome
+          become: no
+          lineinfile:
+            path: /chemin/vers/ansibleFails.log
+            create: yes
+            line: "{{ lookup('pipe', 'TZ=Europe/Paris date +\"%Y-%m-%d %H:%M:%S\"') }} | {{ inventory_hostname }} | Chrome install failed"
+          delegate_to: localhost
+
+    - block:
+        - name: Installer Xournal
+          apt:
+            name: xournal
+            state: present
+
+      rescue:
+        - name: Log - échec installation Xournal
+          become: no
+          lineinfile:
+            path: /chemin/vers/ansibleFails.log
+            create: yes
+            line: "{{ lookup('pipe', 'TZ=Europe/Paris date +\"%Y-%m-%d %H:%M:%S\"') }} | {{ inventory_hostname }} | Xournal install failed"
+          delegate_to: localhost
+
+    - block:
+        - name: Installer R
+          apt:
+            name: r-base
+            state: present
+
+      rescue:
+        - name: Log - échec installation R
+          become: no
+          lineinfile:
+            path: /chemin/vers/ansibleFails.log
+            create: yes
+            line: "{{ lookup('pipe', 'TZ=Europe/Paris date +\"%Y-%m-%d %H:%M:%S\"') }} | {{ inventory_hostname }} | R install failed"
+          delegate_to: localhost
+
+    - block:
+        - name: Télécharger RStudio
+          get_url:
+            url: https://download1.rstudio.org/electron/jammy/amd64/rstudio-2026.04.0-526-amd64.deb
+            dest: /tmp/rstudio.deb
+
+      rescue:
+        - name: Log - échec téléchargement RStudio
+          become: no
+          lineinfile:
+            path: /chemin/vers/ansibleFails.log
+            create: yes
+            line: "{{ lookup('pipe', 'TZ=Europe/Paris date +\"%Y-%m-%d %H:%M:%S\"') }} | {{ inventory_hostname }} | RStudio download failed"
+          delegate_to: localhost
+
+    - block:
+        - name: Installer RStudio
+          apt:
+            deb: /tmp/rstudio.deb
+
+      rescue:
+        - name: Log - échec installation RStudio
+          become: no
+          lineinfile:
+            path: /chemin/vers/ansibleFails.log
+            create: yes
+            line: "{{ lookup('pipe', 'TZ=Europe/Paris date +\"%Y-%m-%d %H:%M:%S\"') }} | {{ inventory_hostname }} | RStudio install failed"
+          delegate_to: localhost
+
+    - block:
+        - name: Télécharger VSCode
+          get_url:
+            url: https://code.visualstudio.com/sha/download?build=stable&os=linux-deb-x64
+            dest: /tmp/vscode.deb
+
+      rescue:
+        - name: Log - échec téléchargement VSCode
+          become: no
+          lineinfile:
+            path: /chemin/vers/ansibleFails.log
+            create: yes
+            line: "{{ lookup('pipe', 'TZ=Europe/Paris date +\"%Y-%m-%d %H:%M:%S\"') }} | {{ inventory_hostname }} | VSCode download failed"
+          delegate_to: localhost
+
+    - block:
+        - name: Installer VSCode
+          apt:
+            deb: /tmp/vscode.deb
+
+      rescue:
+        - name: Log - échec installation VSCode
+          become: no
+          lineinfile:
+            path: /chemin/vers/ansibleFails.log
+            create: yes
+            line: "{{ lookup('pipe', 'TZ=Europe/Paris date +\"%Y-%m-%d %H:%M:%S\"') }} | {{ inventory_hostname }} | VSCode install failed"
+          delegate_to: localhost
+
+    - block:
+        - name: Télécharger Zoom
+          get_url:
+            url: https://zoom.us/client/latest/zoom_amd64.deb
+            dest: /tmp/zoom.deb
+
+      rescue:
+        - name: Log - échec téléchargement Zoom
+          become: no
+          lineinfile:
+            path: /chemin/vers/ansibleFails.log
+            create: yes
+            line: "{{ lookup('pipe', 'TZ=Europe/Paris date +\"%Y-%m-%d %H:%M:%S\"') }} | {{ inventory_hostname }} | Zoom download failed"
+          delegate_to: localhost
+
+    - block:
+        - name: Installer Zoom
+          apt:
+            deb: /tmp/zoom.deb
+
+      rescue:
+        - name: Log - échec installation Zoom
+          become: no
+          lineinfile:
+            path: /chemin/vers/ansibleFails.log
+            create: yes
+            line: "{{ lookup('pipe', 'TZ=Europe/Paris date +\"%Y-%m-%d %H:%M:%S\"') }} | {{ inventory_hostname }} | Zoom install failed"
+          delegate_to: localhost
+
+    - block:
+        - name: Installer LibreOffice
+          apt:
+            name: libreoffice
+            state: present
+
+      rescue:
+        - name: Log - échec installation LibreOffice
+          become: no
+          lineinfile:
+            path: /chemin/vers/ansibleFails.log
+            create: yes
+            line: "{{ lookup('pipe', 'TZ=Europe/Paris date +\"%Y-%m-%d %H:%M:%S\"') }} | {{ inventory_hostname }} | LibreOffice install failed"
+          delegate_to: localhost

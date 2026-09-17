@@ -1,0 +1,55 @@
+---
+# Partie 1/1 : Ajout d'une tâche Cron
+#
+# S'exécute sur les PCs du groupe [UserAnsible]
+#
+# Ajoute un cron qui lance le playbook LancerDecrypter.yaml
+# tous les jours à 08h00
+#
+# Les erreurs produites sont enregistrées
+# dans le fichier ansibleFails.log
+
+- name: Configuration du Cron
+  hosts: localhost
+  become: no
+
+  tasks:
+
+    - block:
+
+        - name: Ajouter le cron de lancement de LancerDecrypter
+          cron:
+            name: "Lancement automatique LancerDecrypter"
+            minute: "0"
+            hour: "8"
+            job: "/usr/bin/ansible-playbook -i /chemin/vers/Inventaire2.ini /chemin/vers/LancerDecrypter.yaml"
+
+      rescue:
+
+        - name: Log - échec ajout cron LancerDecrypter
+          become: no
+          lineinfile:
+            path: /chemin/vers/ansibleFails.log
+            create: yes
+            line: "{{ lookup('pipe', 'TZ=Europe/Paris date +\"%Y-%m-%d %H:%M:%S\"') }} | {{ inventory_hostname }} | Cron LancerDecrypter failed"
+
+- name: Relancer les PCs
+  hosts: UserAnsible
+  become: yes
+  
+  tasks:
+
+    - block:
+        - name: Relancer PC
+          command: reboot
+          async: 1
+          poll: 0
+
+      rescue:
+        - name: Log erreur Relancer
+          become: no
+          lineinfile:
+            path: /chemin/vers/ansibleFails.log
+            create: yes
+            line: "{{ lookup('pipe', 'TZ=Europe/Paris date +\"%Y-%m-%d %H:%M:%S\"') }} | {{ inventory_hostname }} | Relancer failed"
+          delegate_to: localhost

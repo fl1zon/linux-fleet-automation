@@ -1,0 +1,111 @@
+---
+# Partie 1/2 : Réveil des machines avec Wake-on-LAN puis déchiffrement du disque
+#
+# Objectif :
+# Démarrer les machines clientes à distance grâce au Wake-on-LAN (WoL)
+# puis déverrouiller automatiquement le disque chiffré LUKS via Dropbear
+#
+# Le playbook s'exécute d'abord depuis le serveur Ansible,
+# puis se connecte aux machines une fois celles-ci démarrées.
+- name: Lancer + Décrypter Pc
+  hosts: localhost
+  become: no
+
+  tasks:
+
+# Envoie un paquet magique WoL à chaque machine dans [Clients]
+    - name: Allumer les Pcs avec WoL
+      command: wakeonlan "{{ hostvars[item].mac }}"
+
+# Boucle sur tous les clients de l'inventaire
+      loop: "{{ groups['Clients'] }}"
+
+# Stocke le résultat de chaque tentative WoL ( pour les logs )
+      register: resultat_wol
+      ignore_errors: yes
+
+    - name: Log WoL fail
+      lineinfile:
+        path: /chemin/vers/ansibleFails.log
+        create: yes
+        line: "{{ lookup('pipe', 'TZ=Europe/Paris date +\"%Y-%m-%d %H:%M:%S\"') }} | {{ item.item }} | WoL fail"
+
+# Reboucle sur les résultats enregistrés précédemment
+      loop: "{{ resultat_wol.results }}"
+
+# Exécute le log uniquement si le résultat contient une erreur
+      when: item.failed
+      delegate_to: localhost
+
+# Attente que les machines aient le temps de démarrer
+    - name: Pause
+      pause:
+        seconds: 120
+
+# Décryptage automatique du disque LUKS
+    - name: Décrypter PCs avec Dropbear
+      command: >
+        ssh -o StrictHostKeyChecking=no -p 2222 root@{{ hostvars[item].ansible_host }}
+        'echo -n "mdp_de_decryptage" | cryptroot-unlock'
+      loop: "{{ groups['Clients'] }}"
+      register: resultat_dropbear
+      ignore_errors: yes
+
+    - name: Log décrypte fail
+      lineinfile:
+        path: /chemin/vers/ansibleFails.log
+        create: yes
+        line: "{{ lookup('pipe', 'TZ=Europe/Paris date +\"%Y-%m-%d %H:%M:%S\"') }} | {{ item.item }} | Dropbear décrypt fail"
+      loop: "{{ resultat_dropbear.results }}"
+      when: item.failed
+      delegate_to: localhost
+
+# Attente que les machines finissent leur boot complet
+    - name: Pause
+      pause:
+        seconds: 60
+
+# Partie 2/2 : Connexion avec l'utilisateur Ansible et maintenance des machines
+#
+# Objectif :
+# Une fois les machines démarrées et déchiffrées :
+# - Se connecter avec l'utilisateur Ansible
+# - Effectuer les mises à jour système
+# - Éteindre les machines proprement
+- name: Mise à jour complète + Shutdown Pc
+  hosts: UserAnsible
+  become: yes
+
+  tasks:
+
+    - block:
+        - name: Maj
+          apt:
+            update_cache: yes
+            upgrade: full
+            autoremove: yes
+            autoclean: yes
+
+      rescue:
+        - name: Log Maj fail
+          become: no
+          lineinfile:
+            path: /chemin/vers/ansibleFails.log
+            create: yes
+            line: "{{ lookup('pipe', 'TZ=Europe/Paris date +\"%Y-%m-%d %H:%M:%S\"') }} | {{ inventory_hostname }} | Maj fail"
+          delegate_to: localhost
+
+    - block:
+        - name: Shutdown
+          command: shutdown now
+          async: 1
+          poll: 0
+
+      rescue:
+        - name: Log shutdown fail
+          become: no
+          lineinfile:
+            path: /chemin/vers/ansibleFails.log
+            create: yes
+            line: "{{ lookup('pipe', 'TZ=Europe/Paris date +\"%Y-%m-%d %H:%M:%S\"') }} | {{ inventory_hostname }} | Shutdown fail"
+          delegate_to: localhost
