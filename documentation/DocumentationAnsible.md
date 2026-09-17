@@ -8,7 +8,7 @@
 - [II ) Préparation de la machine serveur](#ii--préparation-de-la-machine-serveur)
   - [1 ) Installation des outils nécessaires](#1--installation-des-outils-nécessaires)
   - [2 ) Génération de la clé SSH](#2--génération-de-la-clé-ssh)
-  - [3 ) Création du script d'activation de l'accès Root](#4--création-du-script-dactivation-de-laccès-root)
+  - [3 ) Création du script d'activation de l'accès Root](#3--création-du-script-dactivation-de-laccès-root)
   - [4 ) Attribution des droits d'exécution](#4--attribution-des-droits-dexécution)
 
 - [III ) Déploiement et configuration avec Ansible](#iii--déploiement-et-configuration-avec-ansible)
