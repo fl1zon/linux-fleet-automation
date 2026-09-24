@@ -49,20 +49,22 @@ Fonctions principales :
 
 ### Schéma d'architecture
 
+```text
 Serveur Ansible
 ├── Inventaire1.ini
 ├── CartesReseau.yaml
 ├── UserAnsible.yaml
 ├── LancerDecrypter.yaml
 └── InstallApps.yaml
-       │
-            ▼
+    │
+    ▼
 Clients Linux
 ├── SSH
 ├── Utilisateur ansible
 ├── Dropbear
 ├── Wake-on-LAN
 └── LUKS
+```
 
 ---
 
